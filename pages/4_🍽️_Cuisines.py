@@ -287,9 +287,9 @@ with st.container():
                        .reset_index()
                        )
     
-    # st.dataframe(top_ten_restaurants.head(qty_select), height=400)
+    st.dataframe(top_ten_restaurants.head(qty_select), height=400)
 
-    AgGrid(top_ten_restaurants.head(qty_select))
+    # AgGrid(top_ten_restaurants.head(qty_select))
 
 with st.container():
     col1, col2 = st.columns(2)
