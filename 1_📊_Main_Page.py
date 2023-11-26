@@ -147,6 +147,14 @@ country_select = st.sidebar.multiselect(
 linhas_selecionadas = df1['country_name'].isin(country_select)
 df1 = df1.loc[linhas_selecionadas, :]
 
+# Download da base tratada
+st.sidebar.markdown('### Dados tratados')
+st.sidebar.download_button(
+    label='Download',
+    data=df1.to_csv(index=False, sep=';'),
+    file_name='data.csv',
+    mime='text/csv'
+)
 # =====================================
 # Layout no Streamlit
 # =====================================
