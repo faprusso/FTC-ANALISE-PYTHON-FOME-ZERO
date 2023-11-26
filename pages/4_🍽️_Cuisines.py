@@ -6,8 +6,6 @@ import inflection
 import streamlit as st
 from streamlit_folium import folium_static
 from PIL import Image
-import altair as alt
-
 
 st.set_page_config(page_title='Visão Restaurantes', page_icon='🍔', layout='wide')
 
@@ -25,6 +23,7 @@ def rename_columns(dataframe):
     cols_new = list(map(snakecase, cols_old))
     df1.columns = cols_new
     return df1
+
 # Preenchimento do nome dos países
 def country_name(country_id):
     return countries[country_id]
@@ -73,18 +72,18 @@ def overall_metrics(country_or_city, calculate_column, op, asc):
 
 def rest_per_cuisine(pos):
     ## Top 10 cuisines -> baseado na melhor avaliação média e quantidade de votos
-    top_cuisines = (df1.loc[:, ['cuisines','restaurant_name', 'aggregate_rating', 'votes', 'average_cost_for_two' ]]
+    top_cuisines = (df1.loc[:, ['cuisines','restaurant_name', 'aggregate_rating', 'votes', 'average_cost_for_two', 'restaurant_id' ]]
                         .groupby(['cuisines'])
                         .mean('aggregate_rating')
-                        .sort_values(['aggregate_rating', 'votes'], ascending=[False,False])
+                        .sort_values(['aggregate_rating', 'votes', 'restaurant_id'], ascending=[False,False, True])
                         .reset_index()
                         )
 
-    ## Top restaurantes por cuisine
+    ## Top restaurantes por cuisine - pegando pela função max()
     cols = ['restaurant_id', 'restaurant_name', 'country_name', 'city', 'cuisines', 'aggregate_rating', 'votes', 'average_cost_for_two', 'currency' ]
     best_restaurants_per_cuisine = (df1.loc[:, cols]
                         .groupby(['restaurant_id', 'restaurant_name', 'cuisines', 'country_name', 'city', 'aggregate_rating', 'votes', 'average_cost_for_two', 'currency'])
-                        .mean()
+                        .max('aggregate_rating')
                         .sort_values(['aggregate_rating', 'votes', 'restaurant_id'], ascending=[False,False,True])
                         .reset_index()
                         )
@@ -93,6 +92,28 @@ def rest_per_cuisine(pos):
 
     return top_1_restaurant_per_cuisine
 
+# Limpando a base de dados
+def clean_datafram(dataframe):
+    df1 = dataframe.copy()
+    # Retirando as 15 linhas com NaN
+    df1 = df1.dropna()
+    # Retirando as linhas com informação duplicada
+    df1 = df1.drop_duplicates()
+    # Transformando os tipos de Cuisine em apenas 1 elemento
+    df1.loc[df1['Cuisines'].notnull(), 'Cuisines'] = df1.loc[df1['Cuisines'].notnull(), 'Cuisines'].apply( lambda x: x.split(",")[0])
+    # Tirando as letas maiúsculas e espaços dos títulos das colunas e adicionando o underline
+    df1 = rename_columns(df1)
+    # Criando a coluna country_name pela função country_name
+    df1['country_name'] = df1['country_code'].apply( lambda x: country_name(x))
+    # Criando a coluna cor pelo código da cor na coluna 'rating_color'
+    df1['color_name'] = df1['rating_color'].apply( lambda x: color_name(x))
+    # Criando o tipo de categoria de comida pela coluna 'price_range'
+    df1['rating_text'] = df1['price_range'].apply( lambda x: create_price_tye(x))
+    # retirando culinária Drinks Only e Mineira da base
+    df1 = df1.drop(df1[(df1["cuisines"] == "Drinks Only")].index)
+    df1 = df1.drop(df1[(df1["cuisines"] == "Mineira")].index)
+
+    return df1
 # ---------------------------
 # Dicionários
 # ---------------------------
@@ -137,26 +158,7 @@ df1 = df.copy()
 # ---------------------------
 # Limpando dados
 # ---------------------------
-
-# Retirando as 15 linhas com NaN
-df1 = df1.dropna()
-# Retirando as linhas com informação duplicada
-df1 = df1.drop_duplicates()
-
-# Transformando os tipos de Cuisine em apenas 1 elemento
-df1.loc[df1['Cuisines'].notnull(), 'Cuisines'] = df1.loc[df1['Cuisines'].notnull(), 'Cuisines'].apply( lambda x: x.split(",")[0])
-
-# Tirando as letas maiúsculas e espaços dos títulos das colunas e adicionando o underline
-df1 = rename_columns(df1)
-
-# Criando a coluna country_name pela função country_name
-df1['country_name'] = df1['country_code'].apply( lambda x: country_name(x))
-
-# Criando a coluna cor pelo código da cor na coluna 'rating_color'
-df1['color_name'] = df1['rating_color'].apply( lambda x: color_name(x))
-
-# Criando o tipo de categoria de comida pela coluna 'price_range'
-df1['rating_text'] = df1['price_range'].apply( lambda x: create_price_tye(x))
+df1 = clean_datafram(df1)
 
 # =====================================
 # Barra Lateral
@@ -199,8 +201,6 @@ cuisines_select = st.sidebar.multiselect(
 # Aplicação dos filtros
 linhas_selecionadas = df1['cuisines'].isin(cuisines_select)
 df1 = df1.loc[linhas_selecionadas, :]
-
-
 
 # =====================================
 # Layout no Streamlit
@@ -282,14 +282,12 @@ with st.container():
     col = ['restaurant_id', 'restaurant_name', 'country_name', 'city', 'cuisines', 'aggregate_rating', 'votes', 'average_cost_for_two' ]
     top_ten_restaurants = (df1.loc[:, col]
                        .groupby(['restaurant_id', 'restaurant_name', 'cuisines', 'country_name', 'city', 'aggregate_rating', 'votes', 'average_cost_for_two'])
-                       .mean()
+                       .max('aggregate_rating')
                        .sort_values(['aggregate_rating', 'votes', 'restaurant_id'], ascending=[False,False,True])
                        .reset_index()
                        )
     
     st.dataframe(top_ten_restaurants.head(qty_select), height=400)
-
-    # AgGrid(top_ten_restaurants.head(qty_select))
 
 with st.container():
     col1, col2 = st.columns(2)

@@ -6,7 +6,6 @@ import inflection
 import streamlit as st
 from streamlit_folium import folium_static
 from PIL import Image
-import altair as alt
 
 st.set_page_config(page_title='Visão Países', page_icon='🌎', layout='wide')
 
@@ -24,6 +23,7 @@ def rename_columns(dataframe):
     cols_new = list(map(snakecase, cols_old))
     df1.columns = cols_new
     return df1
+
 # Preenchimento do nome dos países
 def country_name(country_id):
     return countries[country_id]
@@ -70,19 +70,28 @@ def overall_metrics(country_or_city, calculate_column, op, asc):
                         )
       return groupby_sorting
 
-# função para automatizar a criação de label para os gráficos do altair
-def label_text(fig, column):
-       text =  fig.mark_text(
-            align='center',
-            baseline='middle',
-            fontSize=13,
-            fontWeight=600,
-            opacity=0.7,
-            color='#424256',
-            text='foo-baz',
-            dy=-6).encode(
-                text=f'{column}:Q')
-       return text
+# Limpando a base de dados
+def clean_datafram(dataframe):
+    df1 = dataframe.copy()
+    # Retirando as 15 linhas com NaN
+    df1 = df1.dropna()
+    # Retirando as linhas com informação duplicada
+    df1 = df1.drop_duplicates()
+    # Transformando os tipos de Cuisine em apenas 1 elemento
+    df1.loc[df1['Cuisines'].notnull(), 'Cuisines'] = df1.loc[df1['Cuisines'].notnull(), 'Cuisines'].apply( lambda x: x.split(",")[0])
+    # Tirando as letas maiúsculas e espaços dos títulos das colunas e adicionando o underline
+    df1 = rename_columns(df1)
+    # Criando a coluna country_name pela função country_name
+    df1['country_name'] = df1['country_code'].apply( lambda x: country_name(x))
+    # Criando a coluna cor pelo código da cor na coluna 'rating_color'
+    df1['color_name'] = df1['rating_color'].apply( lambda x: color_name(x))
+    # Criando o tipo de categoria de comida pela coluna 'price_range'
+    df1['rating_text'] = df1['price_range'].apply( lambda x: create_price_tye(x))
+    # retirando culinária Drinks Only e Mineira da base
+    df1 = df1.drop(df1[(df1["cuisines"] == "Drinks Only")].index)
+    df1 = df1.drop(df1[(df1["cuisines"] == "Mineira")].index)
+
+    return df1
 
 # ---------------------------
 # Dicionários
@@ -128,26 +137,7 @@ df1 = df.copy()
 # ---------------------------
 # Limpando dados
 # ---------------------------
-
-# Retirando as 15 linhas com NaN
-df1 = df1.dropna()
-# Retirando as linhas com informação duplicada
-df1 = df1.drop_duplicates()
-
-# Transformando os tipos de Cuisine em apenas 1 elemento
-df1.loc[df1['Cuisines'].notnull(), 'Cuisines'] = df1.loc[df1['Cuisines'].notnull(), 'Cuisines'].apply( lambda x: x.split(",")[0])
-
-# Tirando as letas maiúsculas e espaços dos títulos das colunas e adicionando o underline
-df1 = rename_columns(df1)
-
-# Criando a coluna country_name pela função country_name
-df1['country_name'] = df1['country_code'].apply( lambda x: country_name(x))
-
-# Criando a coluna cor pelo código da cor na coluna 'rating_color'
-df1['color_name'] = df1['rating_color'].apply( lambda x: color_name(x))
-
-# Criando o tipo de categoria de comida pela coluna 'price_range'
-df1['rating_text'] = df1['price_range'].apply( lambda x: create_price_tye(x))
+df1 = clean_datafram(df1)
 
 # =====================================
 # Barra Lateral
@@ -181,19 +171,8 @@ st.header('🌎 Visão Países')
 
 with st.container():
     country_with_more_restaurants = overall_metrics('country_name', 'restaurant_id', 'nunique', False)
-    st.markdown('<h5 style= "text-align: center">Quantidade de restaurantes registrados por país</h5>', unsafe_allow_html=True)
-
-    # Gráfico com Biblioteca Altair
-    # fig = (
-    #     alt.Chart(country_with_more_restaurants)
-    #     .mark_bar()
-    #     .encode(
-    #         alt.X('country_name', title='Países', sort = alt.EncodingSortField(field='restaurant_id', order='descending')),
-    #         alt.Y('restaurant_id', title='Quantidade de Restaurantes')
-    #     )
-    # )
-
-    # st.altair_chart(fig + label_text(fig, 'restaurant_id'), use_container_width=True)
+    st.markdown('<h5 style= "text-align: center">Quantidade de restaurantes registrados por país</h5>',
+                 unsafe_allow_html=True)
 
     # Gráfico com Biblioteca Plotly
     fig = px.bar(
@@ -210,18 +189,8 @@ with st.container():
 
 with st.container():
     country_with_more_cities = overall_metrics('country_name', 'city', 'nunique', False)
-    st.markdown('<h5 style= "text-align: center">Quantidade de cidades registrados por país</h5>', unsafe_allow_html=True)
-
-    # Gráfico com Biblioteca Altair
-    # fig = (
-    #     alt.Chart(country_with_more_cities)
-    #     .mark_bar()
-    #     .encode(
-    #         alt.X('country_name', title='Países', sort = alt.EncodingSortField(field= 'city', order='descending')), 
-    #         alt.Y('city', title='Quantidade de Cidades')
-    #         )
-    # )
-    # st.altair_chart(fig + label_text(fig, 'city'),use_container_width=True)
+    st.markdown('<h5 style= "text-align: center">Quantidade de cidades registrados por país</h5>',
+                 unsafe_allow_html=True)
 
     # Gráfico com Biblioteca Plotly
     fig = px.bar(
@@ -238,18 +207,8 @@ with st.container():
 
 with st.container():
     country_dif_cuisines = overall_metrics('country_name', 'cuisines', 'nunique', False)
-    st.markdown('<h5 style= "text-align: center">Tipos de culinária por país</h5>', unsafe_allow_html=True)
-
-    # Gráfico com Biblioteca Altair
-    # fig = (
-    #     alt.Chart(country_dif_cuisines)
-    #     .mark_bar()
-    #     .encode(
-    #         alt.X('country_name', title='Países', sort = alt.EncodingSortField(field= 'cuisines', order='descending')), 
-    #         alt.Y('cuisines', title='Quantidade de Culinárias')
-    #         )
-    # )
-    # st.altair_chart(fig + label_text(fig, 'cuisines'),use_container_width=True)
+    st.markdown('<h5 style= "text-align: center">Tipos de culinária por país</h5>', 
+                unsafe_allow_html=True)
 
     # Gráfico com Biblioteca Plotly
     fig = px.bar(
@@ -275,20 +234,9 @@ with st.container():
                                      .reset_index()
                                      ),0)
 
-        st.markdown('<h5 style= "text-align: center">Quantidade de avaliações médias por país</h5>', unsafe_allow_html=True)
+        st.markdown('<h5 style= "text-align: center">Quantidade de avaliações médias por país</h5>',
+                    unsafe_allow_html=True)
 
-        # Gráfico com Biblioteca Altair
-        # fig = (
-        #     alt.Chart(country_with_more_ratings)
-        #     .mark_bar()
-        #     .encode(
-        #         alt.X('country_name', title='Países', sort = alt.EncodingSortField(field= 'votes', order= 'descending')),
-        #         alt.Y('votes', title='Quantidade de Avaliações')
-        #     )
-        # )
-        # st.altair_chart(fig + label_text(fig, 'votes'), use_container_width=True)
-
-        # Gráfico com Biblioteca Plotly
         fig = px.bar(
             country_with_more_ratings,
             x='country_name',
@@ -302,18 +250,8 @@ with st.container():
         st.plotly_chart(fig, use_container_width=True, theme=None)
     with col2:
         country_avg_rating = round(overall_metrics('country_name', 'aggregate_rating', 'mean', False),2)
-        st.markdown('<h5 style= "text-align: center">Nota média dos restaurantes por país</h5>', unsafe_allow_html=True)
-
-        # Gráfico com Biblioteca Altair
-        # fig = (
-        #     alt.Chart(country_avg_rating)
-        #     .mark_bar()
-        #     .encode(
-        #         alt.X('country_name', title='Países', sort = alt.EncodingSortField(field= 'aggregate_rating', order= 'descending')),
-        #         alt.Y('aggregate_rating', title='Nota Média')
-        #     )
-        # )
-        # st.altair_chart(fig + label_text(fig, 'aggregate_rating'), use_container_width=True)
+        st.markdown('<h5 style= "text-align: center">Nota média dos restaurantes por país</h5>', 
+                    unsafe_allow_html=True)
 
         # Gráfico com Biblioteca Plotly
         fig = px.bar(
@@ -338,18 +276,6 @@ with st.container():
                                   .reset_index()
                                   )
 
-
-    # Gráfico com Biblioteca Altair
-    # fig = (
-    #     alt.Chart(country_avg_cost_for_two)
-    #     .mark_bar()
-    #     .encode(
-    #         alt.X('country_name', title='Países', sort = '-y'),
-    #         alt.Y('average_cost_for_two', title='Preço para duas pessoas')
-    #         )
-    #     )
-    # st.altair_chart(fig + label_text(fig, 'average_cost_for_two'), use_container_width=True)
-
     # Gráfico com Biblioteca Plotly
     fig = px.bar(
             country_avg_cost_for_two,
@@ -363,6 +289,6 @@ with st.container():
                 'currency': 'Moeda'
             }
         )
-    st.plotly_chart(fig, use_container_width=True, theme=None)
+    st.plotly_chart(fig, use_container_width=True)
 
 

@@ -84,6 +84,28 @@ def label_text(fig, column):
                 text=f'{column}:Q')
        return text
 
+# Limpando a base de dados
+def clean_datafram(dataframe):
+    df1 = dataframe.copy()
+    # Retirando as 15 linhas com NaN
+    df1 = df1.dropna()
+    # Retirando as linhas com informação duplicada
+    df1 = df1.drop_duplicates()
+    # Transformando os tipos de Cuisine em apenas 1 elemento
+    df1.loc[df1['Cuisines'].notnull(), 'Cuisines'] = df1.loc[df1['Cuisines'].notnull(), 'Cuisines'].apply( lambda x: x.split(",")[0])
+    # Tirando as letas maiúsculas e espaços dos títulos das colunas e adicionando o underline
+    df1 = rename_columns(df1)
+    # Criando a coluna country_name pela função country_name
+    df1['country_name'] = df1['country_code'].apply( lambda x: country_name(x))
+    # Criando a coluna cor pelo código da cor na coluna 'rating_color'
+    df1['color_name'] = df1['rating_color'].apply( lambda x: color_name(x))
+    # Criando o tipo de categoria de comida pela coluna 'price_range'
+    df1['rating_text'] = df1['price_range'].apply( lambda x: create_price_tye(x))
+    # retirando culinária Drinks Only e Mineira da base
+    df1 = df1.drop(df1[(df1["cuisines"] == "Drinks Only")].index)
+    df1 = df1.drop(df1[(df1["cuisines"] == "Mineira")].index)
+
+    return df1
 
 # ---------------------------
 # Dicionários
@@ -129,26 +151,7 @@ df1 = df.copy()
 # ---------------------------
 # Limpando dados
 # ---------------------------
-
-# Retirando as 15 linhas com NaN
-df1 = df1.dropna()
-# Retirando as linhas com informação duplicada
-df1 = df1.drop_duplicates()
-
-# Transformando os tipos de Cuisine em apenas 1 elemento
-df1.loc[df1['Cuisines'].notnull(), 'Cuisines'] = df1.loc[df1['Cuisines'].notnull(), 'Cuisines'].apply( lambda x: x.split(",")[0])
-
-# Tirando as letas maiúsculas e espaços dos títulos das colunas e adicionando o underline
-df1 = rename_columns(df1)
-
-# Criando a coluna country_name pela função country_name
-df1['country_name'] = df1['country_code'].apply( lambda x: country_name(x))
-
-# Criando a coluna cor pelo código da cor na coluna 'rating_color'
-df1['color_name'] = df1['rating_color'].apply( lambda x: color_name(x))
-
-# Criando o tipo de categoria de comida pela coluna 'price_range'
-df1['rating_text'] = df1['price_range'].apply( lambda x: create_price_tye(x))
+df1 = clean_datafram(df1)
 
 # =====================================
 # Barra Lateral
@@ -193,7 +196,7 @@ with st.container():
         city_with_more_restaurants.head(10),
         x='city',
         y='restaurant_id',
-        text_auto='.2f',
+        text_auto='.0f',
         color='country_name',
         labels={
             'city': 'Cidade',
@@ -203,55 +206,25 @@ with st.container():
     )
     st.plotly_chart(fig, use_container_width=True, theme=None)
 
-    # Gráfico com Biblioteca Altair
-#     scale = alt.Scale(
-#     domain=['India', 'United States of America', 'England', 'Turkey', 'South Africa', 'United Arab Emirates', 'Brazil', 'New Zeland', 'Australia', 'Canada', 'Indonesia', 'Philippines', 'Qatar', 'Singapure', 'Sri Lanka'],
-#     range=["#4c78a8", "#f58518", "#e45756","#72b7b2", "#54a24b", "#eeca3b", "#b279a2", "#ff9da6","#9d755d", "#bab0ac"],
-# )
-    
-
-    # fig = (
-    #     alt.Chart(city_with_more_restaurants.head(10))
-    #     .mark_bar()
-    #     .encode(
-    #         alt.X('city', title='Cidades', sort = alt.EncodingSortField(field= 'restaurant_id', order= 'descending')),
-    #         alt.Y('restaurant_id', title='Quantidade de restaurantes'),
-    #         color= alt.Color('country_name:N', title='Países'))
-    #         )
-            
-    # st.altair_chart(fig + label_text(fig, 'restaurant_id'), use_container_width=True, theme=None)
-
 with st.container():
     col1, col2 = st.columns(2)
 
     with col1:
         city_restaurants_above_4 = (df1.loc[df1['aggregate_rating'] >= 4, ['restaurant_id', 'city', 'country_name']]
                                         .groupby(['country_name','city'])
-                                        .nunique()
+                                        .count()
                                         .sort_values(['restaurant_id', 'city'], ascending=[False, True])
                                         .reset_index()
                                         )
         
         st.markdown('<h5 style= "text-align: center">TOP 10 cidades: Restaurantes com avaliação média acima de 4</h5>', unsafe_allow_html=True)
         
-        # Gráfico com Biblioteca Altair
-        # fig = (
-        #     alt.Chart(city_restaurants_above_4.head(10))
-        #     .mark_bar()
-        #     .encode(
-        #         alt.X('city', title='Cidades', sort= '-y'),
-        #         alt.Y('restaurant_id', title='Quantidade de restaurantes'),
-        #         color= alt.Color('country_name:N', title='Países')
-        #     )
-        # )
-        # st.altair_chart(fig + label_text(fig, 'restaurant_id'), use_container_width=True, theme=None)
-
         # Gráfico com Biblioteca Plotly
         fig = px.bar(
         city_restaurants_above_4.head(10),
         x='city',
         y='restaurant_id',
-        text_auto='.2f',
+        text_auto='.0f',
         color='country_name',
         labels={
             'city': 'Cidade',
@@ -264,25 +237,11 @@ with st.container():
     with col2:
         city_restaurants_below_2_5 = (df1.loc[df1['aggregate_rating'] <= 2.5, ['restaurant_id', 'city', 'country_name']]
                                         .groupby(['country_name','city'])
-                                        .nunique()
+                                        .count()
                                         .sort_values(['restaurant_id', 'city'], ascending=[False, True])
                                         .reset_index()
                                         )
-
-      
-
         st.markdown('<h5 style= "text-align: center"> TOP 10 cidades: Restaurantes com avaliação média abaixo de 2.5</h5>', unsafe_allow_html=True)
-
-        # Gráfico com Biblioteca Altair
-        # fig = (
-        #     alt.Chart(city_restaurants_below_2_5.head(10))
-        #     .mark_bar()
-        #     .encode(
-        #         alt.X('city', title='Cidades', sort= '-y'),
-        #         alt.Y('restaurant_id', title='Quantidade de restaurantes')
-        #     )
-        # )
-        # st.altair_chart(fig, use_container_width=True)
 
         # Gráfico com Biblioteca Plotly
         fig = px.bar(
@@ -309,23 +268,12 @@ with st.container():
     
     st.markdown('<h5 style= "text-align: center">Top 10 cidades com maior variedade de culinárias</h5>', unsafe_allow_html=True)
     
-    # Gráfico com Biblioteca Altair
-    # fig = (
-    #     alt.Chart(city_types_of_cuisine.head(10))
-    #     .mark_bar()
-    #     .encode(
-    #         alt.X('city', title='Cidades', sort='-y'),
-    #         alt.Y('cuisines', title='Tipos de culinária')
-    #     )
-    # )
-    # st.altair_chart(fig, use_container_width=True)
-
 # Gráfico com Biblioteca Plotly
     fig = px.bar(
         city_types_of_cuisine.head(10),
         x='city',
         y='cuisines',
-        text_auto='.2f',
+        text_auto='.0f',
         color='country_name',
         labels={
             'city': 'Cidade',

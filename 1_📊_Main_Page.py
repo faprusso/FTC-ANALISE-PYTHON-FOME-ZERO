@@ -24,6 +24,7 @@ def rename_columns(dataframe):
     cols_new = list(map(snakecase, cols_old))
     df1.columns = cols_new
     return df1
+
 # Preenchimento do nome dos países
 def country_name(country_id):
     return countries[country_id]
@@ -43,6 +44,28 @@ def create_price_tye(price_range):
     else:
         return "gourmet"
 
+# Limpando a base de dados
+def clean_datafram(dataframe):
+    df1 = dataframe.copy()
+    # Retirando as 15 linhas com NaN
+    df1 = df1.dropna()
+    # Retirando as linhas com informação duplicada
+    df1 = df1.drop_duplicates()
+    # Transformando os tipos de Cuisine em apenas 1 elemento
+    df1.loc[df1['Cuisines'].notnull(), 'Cuisines'] = df1.loc[df1['Cuisines'].notnull(), 'Cuisines'].apply( lambda x: x.split(",")[0])
+    # Tirando as letas maiúsculas e espaços dos títulos das colunas e adicionando o underline
+    df1 = rename_columns(df1)
+    # Criando a coluna country_name pela função country_name
+    df1['country_name'] = df1['country_code'].apply( lambda x: country_name(x))
+    # Criando a coluna cor pelo código da cor na coluna 'rating_color'
+    df1['color_name'] = df1['rating_color'].apply( lambda x: color_name(x))
+    # Criando o tipo de categoria de comida pela coluna 'price_range'
+    df1['rating_text'] = df1['price_range'].apply( lambda x: create_price_tye(x))
+    # retirando culinária Drinks Only e Mineira da base
+    df1 = df1.drop(df1[(df1["cuisines"] == "Drinks Only")].index)
+    df1 = df1.drop(df1[(df1["cuisines"] == "Mineira")].index)
+
+    return df1
 # ---------------------------
 # Dicionários
 # ---------------------------
@@ -87,26 +110,7 @@ df1 = df.copy()
 # ---------------------------
 # Limpando dados
 # ---------------------------
-
-# Retirando as 15 linhas com NaN
-df1 = df1.dropna()
-# Retirando as linhas com informação duplicada
-df1 = df1.drop_duplicates()
-
-# Transformando os tipos de Cuisine em apenas 1 elemento
-df1.loc[df1['Cuisines'].notnull(), 'Cuisines'] = df1.loc[df1['Cuisines'].notnull(), 'Cuisines'].apply( lambda x: x.split(",")[0])
-
-# Tirando as letas maiúsculas e espaços dos títulos das colunas e adicionando o underline
-df1 = rename_columns(df1)
-
-# Criando a coluna country_name pela função country_name
-df1['country_name'] = df1['country_code'].apply( lambda x: country_name(x))
-
-# Criando a coluna cor pelo código da cor na coluna 'rating_color'
-df1['color_name'] = df1['rating_color'].apply( lambda x: color_name(x))
-
-# Criando o tipo de categoria de comida pela coluna 'price_range'
-df1['rating_text'] = df1['price_range'].apply( lambda x: create_price_tye(x))
+df1 = clean_datafram(df1)
 
 # =====================================
 # Barra Lateral
@@ -170,55 +174,40 @@ with st.container():
         col5.metric('Tipos de Culinária', unique_cuisines)
 
 with st.container():
-    # df_aux = (df1.loc[:, ['city', 'country_name', 'longitude', 'latitude', 'cuisines', 'currency', 'aggregate_rating', 'restaurant_name', 'average_cost_for_two']]
-    #       .groupby(['country_name', 'city'])
-    #       .mean('aggregate_rating')
-    #       .reset_index()
-    #       )
-    # map = folium.Map()
-
-    # for index, location_info in df_aux.iterrows():
-    #     folium.Marker([
-    #         location_info['latitude'],
-    #         location_info['longitude']
-    #     ], popup= location_info[['country_name','city', 'aggregate_rating', 'average_cost_for_two']]).add_to(map)
-
-    # folium_static(map, width=1024, height=600)
-
     def create_map(dataframe):
-        f = folium.Figure(width=1920, height=1080)
+            f = folium.Figure(width=1920, height=1080)
 
-        m = folium.Map(max_bounds=True).add_to(f)
+            m = folium.Map(max_bounds=True).add_to(f)
 
-        marker_cluster = MarkerCluster().add_to(m)
+            marker_cluster = MarkerCluster().add_to(m)
 
-        for _, line in dataframe.iterrows():
+            for _, line in dataframe.iterrows():
 
-            name = line["restaurant_name"]
-            price_for_two = line["average_cost_for_two"]
-            cuisine = line["cuisines"]
-            currency = line["currency"]
-            rating = line["aggregate_rating"]
-            color = f'{line["color_name"]}'
+                name = line["restaurant_name"]
+                price_for_two = line["average_cost_for_two"]
+                cuisine = line["cuisines"]
+                currency = line["currency"]
+                rating = line["aggregate_rating"]
+                color = f'{line["color_name"]}'
 
-            html = "<p><strong>{}</strong></p>"
-            html += "<p>Price: {},00 ({}) para dois"
-            html += "<br />Type: {}"
-            html += "<br />Aggragate Rating: {}/5.0"
-            html = html.format(name, price_for_two, currency, cuisine, rating)
+                html = "<p><strong>{}</strong></p>"
+                html += "<p>Price: {},00 ({}) para dois"
+                html += "<br />Type: {}"
+                html += "<br />Aggragate Rating: {}/5.0"
+                html = html.format(name, price_for_two, currency, cuisine, rating)
 
-            popup = folium.Popup(
-                folium.Html(html, script=True),
-                max_width=500,
-            )
+                popup = folium.Popup(
+                    folium.Html(html, script=True),
+                    max_width=500,
+                )
 
-            folium.Marker(
-                [line["latitude"], line["longitude"]],
-                popup=popup,
-                icon=folium.Icon(color=color, icon="home", prefix="fa"),
-            ).add_to(marker_cluster)
+                folium.Marker(
+                    [line["latitude"], line["longitude"]],
+                    popup=popup,
+                    icon=folium.Icon(color=color, icon="home", prefix="fa"),
+                ).add_to(marker_cluster)
 
-        folium_static(m, width=1024, height=768)
+            folium_static(m, width=1200, height=800)
 
     st.markdown('### Nossos restaurantes pelo mundo:')
     create_map(df1)
