@@ -248,7 +248,7 @@ with st.container():
         city_restaurants_below_2_5.head(10),
         x='city',
         y='restaurant_id',
-        text_auto='.2f',
+        text_auto='.0f',
         color='country_name',
         labels={
             'city': 'Cidade',
