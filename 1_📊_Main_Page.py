@@ -215,7 +215,7 @@ with st.container():
                     icon=folium.Icon(color=color, icon="home", prefix="fa"),
                 ).add_to(marker_cluster)
 
-            folium_static(m, width=1200, height=800)
+            folium_static(m, width=1024, height=786)
 
     st.markdown('### Nossos restaurantes pelo mundo:')
     create_map(df1)
